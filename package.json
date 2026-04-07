@@ -1,0 +1,50 @@
+{
+  "name": "@pressa/mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Pressa — LaTeX to PDF compilation service",
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "bin": {
+    "pressa-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "latex",
+    "pdf",
+    "pressa",
+    "model-context-protocol"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nikolatodorovic/pressa-mcp.git"
+  },
+  "author": "Pressa <hello@pressa.dev>",
+  "homepage": "https://pressa.dev",
+  "bugs": {
+    "url": "https://github.com/nikolatodorovic/pressa-mcp/issues"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "@types/node": "^22.0.0"
+  }
+}
