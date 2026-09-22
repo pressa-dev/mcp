@@ -1,7 +1,8 @@
 {
   "name": "@pressa/mcp",
-  "version": "0.1.0",
-  "description": "MCP server for Pressa — LaTeX to PDF compilation service",
+  "version": "0.7.2",
+  "description": "MCP server for Pressa: compile LaTeX to PDF without installing TeX Live. No API key needed to start.",
+  "mcpName": "io.github.pressa-dev/pressa",
   "type": "module",
   "main": "dist/index.js",
   "exports": {
@@ -17,23 +18,29 @@
     "build": "tsc",
     "prepare": "npm run build",
     "dev": "tsc --watch",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "npm run build && node --test test/*.test.mjs"
   },
   "keywords": [
     "mcp",
+    "mcp-server",
     "latex",
+    "latex-to-pdf",
+    "pdflatex",
+    "texlive",
     "pdf",
+    "pdf-generation",
     "pressa",
     "model-context-protocol"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/nikolatodorovic/pressa-mcp.git"
+    "url": "https://github.com/pressa-dev/mcp.git"
   },
   "author": "Pressa <hello@pressa.dev>",
   "homepage": "https://pressa.dev",
   "bugs": {
-    "url": "https://github.com/nikolatodorovic/pressa-mcp/issues"
+    "url": "https://github.com/pressa-dev/mcp/issues"
   },
   "license": "MIT",
   "engines": {

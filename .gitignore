@@ -2,3 +2,5 @@ node_modules/
 dist/
 *.tsbuildinfo
 .env
+# mcp-publisher writes its registry login tokens into the working directory
+.mcpregistry_*

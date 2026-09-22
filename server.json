@@ -1,0 +1,40 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.pressa-dev/pressa",
+  "title": "Pressa - LaTeX to PDF",
+  "description": "Compile LaTeX to PDF without installing TeX Live. No API key needed to start.",
+  "websiteUrl": "https://pressa.dev/docs/mcp",
+  "repository": {
+    "url": "https://github.com/pressa-dev/mcp",
+    "source": "github",
+    "id": "1204147654"
+  },
+  "version": "0.7.2",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@pressa/mcp",
+      "version": "0.7.2",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "PRESSA_API_KEY",
+          "description": "Optional. Without it the server exposes only compile, which works keyless within a daily allowance. A free key from pressa.dev raises the limits and registers the template, asset and render tools.",
+          "placeholder": "pressa_your_key_here",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://api.pressa.dev/mcp"
+    }
+  ]
+}
