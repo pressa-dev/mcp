@@ -1,0 +1,105 @@
+name: Publish
+
+# Publishes @pressa/mcp to npm and the same version to the MCP Registry when
+# a version tag (v0.8.1) is pushed. The tag comes from
+# script/release_package.sh in the private monorepo, which syncs this repo
+# first. This file lives in the monorepo under mcp/.github/ so the sync
+# carries it over instead of deleting it.
+#
+# There are no stored secrets. npm accepts the publish through Trusted
+# Publishing (npmjs.com -> @pressa/mcp -> Settings -> Trusted Publisher:
+# pressa-dev / mcp / publish.yml) and adds provenance by itself. The MCP
+# Registry accepts it through GitHub OIDC for the io.github.pressa-dev
+# namespace. Both exchange this run's id-token for a token that lives for
+# minutes.
+#
+# Each publish step skips a version that is already out, so re-running a
+# failed run (or tagging a version that reached npm by hand) finishes the
+# remaining steps instead of failing on "version exists".
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+env:
+  PACKAGE: "@pressa/mcp"
+  SERVER_NAME: "io.github.pressa-dev/pressa"
+  MCP_PUBLISHER_VERSION: "1.8.1"
+  MCP_PUBLISHER_SHA256: "a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # Trusted Publishing needs npm 11.5.1 or later.
+      - run: npm install -g npm@latest
+
+      - name: Tag matches package.json and server.json
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          for v in "$(node -p 'require("./package.json").version')" \
+                   "$(node -p 'require("./server.json").version')" \
+                   "$(node -p 'require("./server.json").packages[0].version')"; do
+            if [ "$v" != "$VERSION" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match version $v in package.json / server.json"
+              exit 1
+            fi
+          done
+
+      - run: npm install --no-audit --no-fund
+
+      # Builds, then runs the tests against dist/.
+      - run: npm test
+
+      - name: Publish to npm
+        run: |
+          if npm view "$PACKAGE@$VERSION" version >/dev/null 2>&1; then
+            echo "$PACKAGE@$VERSION is already on npm, skipping."
+          else
+            npm publish --access public
+          fi
+
+      # The registry reads mcpName from the published npm package, which npm
+      # can take a few minutes to serve.
+      - name: Wait for npm to serve the version
+        run: |
+          for i in $(seq 1 30); do
+            if [ "$(npm view "$PACKAGE@$VERSION" mcpName 2>/dev/null)" = "$SERVER_NAME" ]; then
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "::error::npm did not serve $PACKAGE@$VERSION with mcpName $SERVER_NAME within 10 minutes"
+          exit 1
+
+      - name: Publish to the MCP Registry
+        run: |
+          url="https://registry.modelcontextprotocol.io/v0/servers/${SERVER_NAME/\//%2F}/versions/$VERSION"
+          if [ "$(curl -s -o /dev/null -w '%{http_code}' "$url")" = "200" ]; then
+            echo "$SERVER_NAME $VERSION is already on the MCP Registry, skipping."
+            exit 0
+          fi
+
+          curl -sSfL -o mcp-publisher.tar.gz \
+            "https://github.com/modelcontextprotocol/registry/releases/download/v$MCP_PUBLISHER_VERSION/mcp-publisher_linux_amd64.tar.gz"
+          echo "$MCP_PUBLISHER_SHA256  mcp-publisher.tar.gz" | sha256sum -c -
+          tar -xzf mcp-publisher.tar.gz mcp-publisher
+
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
