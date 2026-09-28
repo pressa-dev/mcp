@@ -82,6 +82,9 @@ export interface TemplateListItem {
   updated_at: string;
   latex_size_bytes: number;
   has_instructions: boolean;
+  // "liquid" for a placeholder template filled by `render`, null for raw
+  // LaTeX compiled as-is.
+  placeholder_engine: "liquid" | null;
   // V1.5 P0 (post-launch UX fix). `studio_compatible` is true when the
   // template can be opened in Pressa Studio (i.e. it uses Liquid
   // placeholders). `studio_url` is an absolute URL the agent can hand back
@@ -103,14 +106,31 @@ export interface TemplateResponse {
   instructions: string | null;
   updated_at: string;
   latex_size_bytes: number;
+  placeholder_engine: "liquid" | null;
+  // Present only on placeholder templates: the fields `render` expects.
+  schema?: Record<string, unknown>;
+  version?: number;
   // V1.5 P0 (post-launch UX fix). Same semantics as on TemplateListItem.
   studio_compatible: boolean;
   studio_url: string | null;
 }
 
+// "liquid": placeholder template filled by `render`. "none": raw LaTeX whose
+// braces only look like placeholders. Omitted: keep the template's kind.
+export type PlaceholderEngine = "liquid" | "none";
+
+export interface SaveTemplateOptions {
+  latexContent?: string;
+  description?: string;
+  instructions?: string;
+  placeholderEngine?: PlaceholderEngine;
+}
+
 export interface TemplateSaveResponse {
   template: TemplateResponse;
   created: boolean;
+  // True when this call converted a raw LaTeX template to a placeholder one.
+  promoted: boolean;
 }
 
 export interface Asset {
@@ -297,19 +317,17 @@ export class PressaClient {
     }
   }
 
-  async saveTemplate(
-    name: string,
-    latexContent: string,
-    description?: string,
-    instructions?: string,
-  ): Promise<TemplateSaveResponse> {
+  async saveTemplate(name: string, options: SaveTemplateOptions): Promise<TemplateSaveResponse> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
 
     try {
-      const body: Record<string, string> = { name, latex_content: latexContent };
+      const { latexContent, description, instructions, placeholderEngine } = options;
+      const body: Record<string, string> = { name };
+      if (latexContent !== undefined) body.latex_content = latexContent;
       if (description) body.description = description;
       if (instructions !== undefined) body.instructions = instructions;
+      if (placeholderEngine) body.placeholder_engine = placeholderEngine;
 
       const response = await this.request("/api/v1/templates", {
         method: "POST",

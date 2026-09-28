@@ -1,6 +1,6 @@
 {
   "name": "@pressa/mcp",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "description": "MCP server for Pressa: compile LaTeX to PDF without installing TeX Live. No API key needed to start.",
   "mcpName": "io.github.pressa-dev/pressa",
   "type": "module",

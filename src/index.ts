@@ -250,7 +250,8 @@ authedTool(
     "- Use `compile` for one-off LaTeX that the agent generated for a specific request and that will not be " +
     "reused, or when no V2 template exists yet.\n" +
     "- If the user has a template but it is V1 (LaTeX-only, no placeholders), the API returns " +
-    "template_engine_mismatch - either fall back to compile or convert the template to V2 first.\n\n" +
+    "template_engine_mismatch - either fall back to compile or convert it with save_template and " +
+    "placeholder_engine \"liquid\" (same template id, name and instructions).\n\n" +
     "DATA SHAPE: pass `data` as a JSON object whose keys match the placeholder names defined in the template's " +
     "schema. The schema is enforced server-side; missing required fields return schema_validation_failed with a " +
     "`missing_fields` array. Type errors (string where the schema expects a number, etc.) return the same error " +
@@ -267,7 +268,8 @@ authedTool(
     "Monthly compile/render cap is enforced; rate_limit (429) returns the cap, used count, and reset time.\n\n" +
     "ERRORS YOU MAY GET BACK (always retriable after fixing the cause unless noted):\n" +
     "- not_found (404): template id or name not in the user's library.\n" +
-    "- template_engine_mismatch (422): template is V1 LaTeX-only. Use compile or migrate to V2.\n" +
+    "- template_engine_mismatch (422): template is V1 LaTeX-only. Use compile, or convert it with " +
+    "save_template and placeholder_engine \"liquid\".\n" +
     "- invalid_data_shape (422): `data` was not a JSON object.\n" +
     "- schema_validation_failed (422): missing_fields / type_errors lists are returned - patch and retry.\n" +
     "- render_parse_failed (422): template Liquid syntax error. The template itself is broken; not retriable " +
@@ -340,6 +342,23 @@ authedTool(
     "should fill it in. If a template with this name already exists it is overwritten. Use this when the user " +
     "wants to save their work for future reuse - e.g. 'save this as my invoice template', 'remember this " +
     "template'. Requires a paid plan (Starter or above).\n\n" +
+    "TWO KINDS OF TEMPLATE - choose with placeholder_engine:\n" +
+    "- Raw LaTeX (default for a new name): compiled exactly as saved. To change a value next time, an agent " +
+    "edits the LaTeX and calls compile.\n" +
+    "- Placeholder template (placeholder_engine \"liquid\"): the values that change are Liquid placeholders " +
+    "({{ amount }}, {{ client.name }}, {% for item in items %}...{% endfor %}), and the render tool fills them " +
+    "from JSON data. The layout never changes and the next agent never touches the LaTeX. Prefer this when the " +
+    "same document is produced repeatedly with different values. The response includes the `schema` render " +
+    "expects.\n\n" +
+    "CONVERTING an existing raw LaTeX template: call save_template with the same name and placeholder_engine " +
+    "\"liquid\", plus the LaTeX with placeholders added. The id, name and instructions are kept. Omit " +
+    "latex_content to convert the source already saved as it is. Converting back to raw LaTeX is not " +
+    "supported.\n\n" +
+    "If you send {{ }} or {% %} WITHOUT placeholder_engine \"liquid\", the save is refused " +
+    "(liquid_placeholders_in_v1_template), because raw LaTeX would print the braces literally in the PDF. Resend " +
+    "with \"liquid\" if they are placeholders, or \"none\" if they are literal LaTeX. If a placeholder save is " +
+    "refused with liquid_syntax_error, some literal LaTeX looks like Liquid to the parser (typically a comment " +
+    "right after a brace, \\foo{%): wrap that LaTeX in {% raw %}...{% endraw %}.\n\n" +
     "WHEN TO ATTACH INSTRUCTIONS: any time the template has parts that change between uses - dates, sequential " +
     "numbers, computed values, conditional sections, or anything an agent will need to decide on the next run. " +
     "If the LaTeX is fully static (the same PDF every time) you can omit instructions. If the user describes how " +
@@ -370,8 +389,16 @@ authedTool(
     "save the resolved rule ('Always use today's date.' or 'Always ask the user for the date.').",
   {
     name: z.string().min(1).max(100).describe("Template name (e.g. 'Monthly Invoice', 'NDA Contract')"),
-    latex_content: z.string().min(1).max(512_000).describe("LaTeX source code to save as template"),
-    description: z.string().max(500).optional().describe("Short description of what this template is for"),
+    latex_content: z
+      .string()
+      .min(1)
+      .max(512_000)
+      .optional()
+      .describe(
+        "LaTeX source code to save as template. Required for a new template. May be omitted when updating only " +
+          "the description or instructions, or when converting the saved source with placeholder_engine \"liquid\".",
+      ),
+    description: z.string().max(500).optional().describe("Short description of what this template is for (max 500 characters)"),
     instructions: z
       .string()
       // Mirrors Rails Template::MAX_INSTRUCTIONS_LENGTH; keep both in sync if the cap moves.
@@ -384,10 +411,23 @@ authedTool(
           "and uses it to fill the template correctly without re-asking the user. Omit if the template is " +
           "fully static, or if you are not sure what rules apply (ask the user first).",
       ),
+    placeholder_engine: z
+      .enum(["liquid", "none"])
+      .optional()
+      .describe(
+        "\"liquid\": the source contains Liquid placeholders to be filled by the render tool (also converts an " +
+          "existing raw LaTeX template). \"none\": raw LaTeX whose braces only look like placeholders. Omit to keep " +
+          "the template's current kind.",
+      ),
   },
-  async ({ name, latex_content, description, instructions }) => {
+  async ({ name, latex_content, description, instructions, placeholder_engine }) => {
     try {
-      const result = await client.saveTemplate(name, latex_content, description, instructions);
+      const result = await client.saveTemplate(name, {
+        latexContent: latex_content,
+        description,
+        instructions,
+        placeholderEngine: placeholder_engine,
+      });
       return {
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
       };
@@ -409,9 +449,9 @@ authedTool(
     "STUDIO LINKS: when a user asks something like 'open my invoice template in Studio', look up the matching " +
     "entry here and hand back the `studio_url` field verbatim. It's an absolute URL " +
     "(`https://pressa.dev/studio/tpl/<id>`) that opens the template in the interactive editor. If " +
-    "`studio_compatible` is false, the template uses the legacy V1 format and Studio template authoring " +
-    "doesn't apply - tell the user the template still works for `compile` calls but cannot be opened in " +
-    "Studio without recreating it via the V2 templates API. If `studio_url` is null on a `studio_compatible` " +
+    "`studio_compatible` is false, the template is raw LaTeX and Studio template authoring doesn't apply - tell " +
+    "the user the template still works for `compile` calls, and can be converted in place to a placeholder " +
+    "template with save_template and placeholder_engine \"liquid\". If `studio_url` is null on a `studio_compatible` " +
     "row, Studio is disabled on this deployment - do not invent a URL.",
   async () => {
     try {

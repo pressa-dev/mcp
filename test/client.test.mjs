@@ -42,12 +42,10 @@ test("saveTemplate: passes instructions field when provided", async () => {
   );
 
   const client = new PressaClient("https://api.example.test", "pressa_test_token");
-  const res = await client.saveTemplate(
-    "Invoice",
-    "\\documentclass{article}\\begin{document}Hi\\end{document}",
-    undefined,
-    "Use today's date.",
-  );
+  const res = await client.saveTemplate("Invoice", {
+    latexContent: "\\documentclass{article}\\begin{document}Hi\\end{document}",
+    instructions: "Use today's date.",
+  });
 
   assert.equal(calls.length, 1);
   const sent = JSON.parse(calls[0].init.body);
@@ -73,7 +71,7 @@ test("saveTemplate: omits instructions key when not provided", async () => {
   );
 
   const client = new PressaClient("https://api.example.test", "pressa_test_token");
-  await client.saveTemplate("Static", "x");
+  await client.saveTemplate("Static", { latexContent: "x" });
 
   const sent = JSON.parse(calls[0].init.body);
   assert.equal(Object.prototype.hasOwnProperty.call(sent, "instructions"), false);
@@ -96,10 +94,47 @@ test("saveTemplate: passes empty string instructions explicitly to clear", async
   );
 
   const client = new PressaClient("https://api.example.test", "pressa_test_token");
-  await client.saveTemplate("X", "x", undefined, "");
+  await client.saveTemplate("X", { latexContent: "x", instructions: "" });
 
   const sent = JSON.parse(calls[0].init.body);
   assert.equal(sent.instructions, "");
+});
+
+test("saveTemplate: sends placeholder_engine and may omit latex_content to convert the saved source", async () => {
+  const calls = mockFetch(() =>
+    jsonResponse({
+      template: {
+        id: 12,
+        name: "Deviza",
+        description: null,
+        latex_content: "{{ amount }}",
+        instructions: null,
+        updated_at: new Date().toISOString(),
+        latex_size_bytes: 12,
+        placeholder_engine: "liquid",
+        schema: { type: "object", properties: { amount: { type: "string" } }, required: ["amount"] },
+      },
+      created: false,
+      promoted: true,
+    }),
+  );
+
+  const client = new PressaClient("https://api.example.test", "pressa_test_token");
+  const res = await client.saveTemplate("Deviza", { placeholderEngine: "liquid" });
+
+  const sent = JSON.parse(calls[0].init.body);
+  assert.deepEqual(sent, { name: "Deviza", placeholder_engine: "liquid" });
+  assert.equal(res.promoted, true);
+});
+
+test("saveTemplate: omits placeholder_engine when not provided", async () => {
+  const calls = mockFetch(() => jsonResponse({ template: { id: 5 }, created: true, promoted: false }));
+
+  const client = new PressaClient("https://api.example.test", "pressa_test_token");
+  await client.saveTemplate("Plain", { latexContent: "x" });
+
+  const sent = JSON.parse(calls[0].init.body);
+  assert.equal(Object.prototype.hasOwnProperty.call(sent, "placeholder_engine"), false);
 });
 
 test("getTemplate: returns instructions field from response", async () => {

@@ -114,3 +114,17 @@ test("a key registers the full tool set", async () => {
     "keyed mode must not carry the anonymous notice",
   );
 });
+
+// save_template is how agents reach the raw LaTeX / placeholder split. Before
+// placeholder_engine existed, saving {{ amount }} into a raw LaTeX template
+// answered 200 and every later compile printed the braces in the PDF.
+test("save_template explains the two kinds of template and takes placeholder_engine", async () => {
+  const tools = await listTools({ apiKey: "pressa_" + "0".repeat(48) });
+  const save = tools.find((t) => t.name === "save_template");
+
+  assert.match(save.description, /placeholder_engine "liquid"/);
+  assert.match(save.description, /liquid_placeholders_in_v1_template/);
+  assert.match(save.description, /\{% raw %\}/, "must name the fix for liquid_syntax_error");
+  assert.deepEqual(save.inputSchema.properties.placeholder_engine.enum, ["liquid", "none"]);
+  assert.deepEqual(save.inputSchema.required, ["name"], "latex_content is optional when converting");
+});

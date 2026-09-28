@@ -54,8 +54,10 @@ needs no Node.js and no local process:
 claude mcp add --transport http pressa https://api.pressa.dev/mcp
 ```
 
-Keyless, it exposes `compile`. Send an `Authorization: Bearer <key>` header to
-register the template, asset and render tools as well.
+Keyless, it exposes `compile` and the public template gallery
+(`list_public_templates`, `get_public_template`, `render_public_template`). Send
+an `Authorization: Bearer <key>` header to register the template, asset and
+render tools as well.
 
 ## Environment Variables
 
@@ -152,11 +154,14 @@ Save or update a LaTeX template by name. Paid plans only. Upserts: a second call
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `name` | string | Yes | Template name (max 100 chars). Unique per user. |
-| `latex_content` | string | Yes | Full LaTeX source for the template body. |
+| `latex_content` | string | For a new template | Full LaTeX source for the template body. May be omitted when converting the saved source with `placeholder_engine: "liquid"`. |
 | `description` | string | No | Short human-readable summary (max 500 chars). Shown in `list_templates`. |
 | `instructions` | string | No | Agent playbook (prose markdown, max 50000 chars). Describes how to fill the template - defaults, workflow rules, edge cases, conditional logic. Optional but recommended for templates with dynamic parts. See note below. |
+| `placeholder_engine` | string | No | `"liquid"`: the source contains Liquid placeholders (`{{ amount }}`) filled by `render`; on an existing raw LaTeX template this converts it in place (same id, name and instructions). `"none"`: raw LaTeX whose braces only look like placeholders. Omit to keep the template's current kind. |
 
 **`description` vs `instructions`:** `description` is the one-line UI summary ("Standard Toptal monthly invoice"). `instructions` is the longer playbook your AI agent reads alongside the LaTeX when filling the template ("Ask the user only for total amount; date is today; invoice number format YYYYMMDD-N where N is sequential count for the calendar year; for EU clients add VAT line"). They are different fields.
+
+**Raw LaTeX vs placeholder templates:** a raw LaTeX template is compiled exactly as saved. A placeholder template is filled with JSON data by `render`, so the layout never changes. A source containing Liquid placeholders sent without `placeholder_engine` is refused with `liquid_placeholders_in_v1_template`, because raw LaTeX would print the braces literally in the PDF. If a placeholder save returns `liquid_syntax_error`, wrap the literal LaTeX that Liquid misreads (usually a comment right after a brace, `\foo{%`) in `{% raw %}...{% endraw %}`.
 
 ### `list_templates`
 
