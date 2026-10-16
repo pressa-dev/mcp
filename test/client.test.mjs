@@ -189,3 +189,35 @@ test("listTemplates: surfaces has_instructions per item", async () => {
   assert.equal(res.templates[0].has_instructions, true);
   assert.equal(res.templates[1].has_instructions, false);
 });
+
+test("createAssetUpload: posts the name and returns the link", async () => {
+  const calls = mockFetch(() =>
+    jsonResponse({
+      upload_url: "https://api.example.test/upload/pau_x",
+      name: "avatar.jpg",
+      expires_at: new Date().toISOString(),
+      max_bytes: 5242880,
+      upload_command: "curl -sS -T <path-to-file> 'https://api.example.test/upload/pau_x'",
+      next_step: "Run upload_command.",
+    }, 201),
+  );
+
+  const client = new PressaClient("https://api.example.test", "pressa_test_token");
+  const res = await client.createAssetUpload("avatar.jpg");
+
+  assert.equal(calls[0].url, "https://api.example.test/api/v1/asset_uploads");
+  assert.equal(calls[0].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].init.body), { name: "avatar.jpg" });
+  assert.equal(res.upload_url, "https://api.example.test/upload/pau_x");
+});
+
+test("createAssetUpload: surfaces the API error code", async () => {
+  mockFetch(() => jsonResponse({ error: "plan_required", message: "Saved assets require a paid plan." }, 403));
+
+  const client = new PressaClient("https://api.example.test", "pressa_test_token");
+  await assert.rejects(client.createAssetUpload("logo.png"), (err) => {
+    assert.equal(err.message, "plan_required");
+    assert.equal(err.status, 403);
+    return true;
+  });
+});

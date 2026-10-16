@@ -143,6 +143,15 @@ export interface Asset {
   content_base64?: string;
 }
 
+export interface AssetUploadResponse {
+  upload_url: string;
+  name: string;
+  expires_at: string;
+  max_bytes: number;
+  upload_command: string;
+  next_step: string;
+}
+
 export interface AssetListResponse {
   assets: Asset[];
   count: number;
@@ -449,6 +458,32 @@ export class PressaClient {
       }
 
       return (await response.json()) as AssetSaveResponse;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async createAssetUpload(name: string): Promise<AssetUploadResponse> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+
+    try {
+      const response = await this.request("/api/v1/asset_uploads", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const body = await this.safeJson(response) as Record<string, unknown> | null;
+        throw new PressaApiError(
+          (body?.error as string) ?? `Create asset upload failed (HTTP ${response.status})`,
+          response.status,
+          body,
+        );
+      }
+
+      return (await response.json()) as AssetUploadResponse;
     } finally {
       clearTimeout(timeout);
     }

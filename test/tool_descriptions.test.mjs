@@ -106,7 +106,7 @@ test("a key registers the full tool set", async () => {
   const names = tools.map((t) => t.name);
 
   assert.ok(tools.length > 1, "a key must register more than compile");
-  for (const expected of ["compile", "render", "usage", "save_template", "list_templates", "save_asset"]) {
+  for (const expected of ["compile", "render", "usage", "save_template", "list_templates", "save_asset", "create_asset_upload"]) {
     assert.ok(names.includes(expected), `missing tool: ${expected}`);
   }
   assert.ok(
@@ -127,4 +127,16 @@ test("save_template explains the two kinds of template and takes placeholder_eng
   assert.match(save.description, /\{% raw %\}/, "must name the fix for liquid_syntax_error");
   assert.deepEqual(save.inputSchema.properties.placeholder_engine.enum, ["liquid", "none"]);
   assert.deepEqual(save.inputSchema.required, ["name"], "latex_content is optional when converting");
+});
+
+// A file the user sends must not travel as base64 the model writes out
+// (~1.8 tokens per character; a phone photo is millions of tokens).
+test("files go through create_asset_upload, not hand-written base64", async () => {
+  const tools = await listTools({ apiKey: "pressa_" + "0".repeat(48) });
+  const byName = Object.fromEntries(tools.map((t) => [t.name, t]));
+
+  assert.match(byName.create_asset_upload.description, /upload_command/);
+  assert.match(byName.create_asset_upload.description, /upload_url/);
+  assert.match(byName.save_asset.description, /create_asset_upload/);
+  assert.match(byName.compile.description, /create_asset_upload/);
 });

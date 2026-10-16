@@ -169,15 +169,12 @@ server.tool(
     "Always include a documentclass declaration. Always wrap content in \\begin{document}...\\end{document}. " +
     "Always escape these characters in body text: % becomes \\%, & becomes \\&, $ becomes \\$, # becomes \\#, " +
     "_ becomes \\_, { becomes \\{, } becomes \\}, backslash becomes \\textbackslash{}.\n\n" +
-    "IMAGES & BINARY ASSETS: To include images, logos, signatures, or embedded PDFs, pass them in the `assets` " +
-    "parameter as a map of filename => base64-encoded binary. In your LaTeX source, reference them by the same " +
-    "filename via \\includegraphics{filename.png} (remember \\usepackage{graphicx}). Example workflow: user " +
-    "uploads a PDF with a company logo; you extract the logo as PNG, base64-encode it, and pass " +
-    "{ \"logo.png\": \"iVBORw0KGgo...\" } as assets while referencing \\includegraphics{logo.png} in the LaTeX.\n\n" +
-    "STORED ASSETS (for reusable brand files): For files the user will reuse across many documents (company logo, " +
-    "signature, letterhead), prefer `save_asset` once and then `use_stored_assets: [\"name\"]` on every future " +
-    "compile, instead of re-encoding the same bytes into `assets` every time. Ephemeral `assets` stays the right " +
-    "choice for one-off files extracted from user-provided documents.\n\n" +
+    "IMAGES & BINARY ASSETS: Reference a file in the LaTeX by filename via \\includegraphics{logo.png} (remember " +
+    "\\usepackage{graphicx}). To get a file the user gives you (photo, logo, signature) to the server, call " +
+    "create_asset_upload: the bytes go by a link, never through you. Then pass `use_stored_assets: [\"name\"]` " +
+    "on this and every future compile. The `assets` parameter (filename => base64 you write out) is only for " +
+    "small one-off files, about 30 KB at most: each KB is about 1,400 characters of output and one wrong " +
+    "character corrupts the file.\n\n" +
     "If the input is not valid LaTeX, the API returns a not_latex_source error with the exact requirements and an " +
     "example template. Read that response, fix your LaTeX, and retry. Do not bounce back to the user.",
   ].filter(Boolean).join("\n"),
@@ -213,9 +210,8 @@ server.tool(
       .array(z.string())
       .optional()
       .describe(
-        "Names of assets in the user's persistent library to inject into this compile. Use this instead of " +
-          "re-sending the same bytes in `assets` every time when a file (logo, signature, letterhead) will be " +
-          "reused across many compiles. Save the file once via save_asset, then reference it by name here. " +
+        "Names of assets in the user's persistent library to inject into this compile. Put a file there " +
+          "with create_asset_upload (any size) or save_asset (small base64), then reference it by name here. " +
           "Cannot collide with names in the ephemeral `assets` map - asset_name_collision (422) if a name appears " +
           "in both.",
       ),
@@ -520,21 +516,50 @@ authedTool(
   },
 );
 
+// --- create_asset_upload tool ---
+
+authedTool(
+  "create_asset_upload",
+  "Get a one-time link that saves a file (photo, logo, signature, letterhead, PDF) into the user's asset library " +
+    "under `name`, replacing any file with that name. The bytes never pass through you, so use this for any file " +
+    "the user gives you, whatever its size. If you can run shell commands and the file is on disk, run the returned " +
+    "`upload_command` with the file path. Otherwise give the user `upload_url`: it opens a page where they pick the " +
+    "file. Then compile with use_stored_assets: [name]. The link expires in 30 minutes and works for one " +
+    "successful upload. Paid plan feature, except replacing an existing file.",
+  {
+    name: z
+      .string()
+      .min(1)
+      .max(64)
+      .describe(
+        "Name to store the file under, with the file's real extension (png, jpg, jpeg, pdf or svg), e.g. " +
+          "logo.png. Reuse an existing name to replace that file.",
+      ),
+  },
+  async ({ name }) => {
+    try {
+      const result = await client.createAssetUpload(name);
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      };
+    } catch (error) {
+      return formatError(error);
+    }
+  },
+);
+
 // --- save_asset tool ---
 
 authedTool(
   "save_asset",
-  "Save or update a binary file (logo, photo, signature, PDF, SVG) in the user's persistent asset library. " +
-    "The asset is keyed by name; passing an existing name overwrites it. Once saved, future compile calls can " +
-    "reference the file via use_stored_assets: [\"name\"] without re-encoding the bytes every time - saves " +
-    "round-trip bandwidth and latency for files you reuse (company logos, signatures, letterheads). Paid plan " +
-    "feature.\n\n" +
+  "Save or update a small file whose base64 you already have (logo, signature, PDF, SVG) in the user's persistent " +
+    "asset library, keyed by name (an existing name is overwritten). Future compiles reference it via " +
+    "use_stored_assets: [\"name\"]. Paid plan feature.\n\n" +
+    "You write the base64 out yourself, so this suits files of about 30 KB at most: each KB is about 1,400 " +
+    "characters of output and one wrong character corrupts the file. For a file on disk or one the user sends " +
+    "you, use create_asset_upload instead.\n\n" +
     "Supported formats: PNG, JPG, JPEG, PDF, SVG (magic bytes verified server-side). Filenames must be plain: " +
-    "alphanumeric plus _ -, single extension, max 64 chars.\n\n" +
-    "Workflow example: the user uploads a PDF with their company logo, then asks for a monthly invoice. Extract " +
-    "the logo as PNG, call save_asset({ name: \"logo.png\", content_base64: \"iVBOR...\" }) once, and from then " +
-    "on any invoice/contract/report compile uses use_stored_assets: [\"logo.png\"] instead of re-sending the " +
-    "logo bytes.",
+    "alphanumeric plus _ -, single extension, max 64 chars.",
   {
     name: z.string().min(1).max(64).describe("Filename (e.g. 'logo.png')"),
     content_base64: z
