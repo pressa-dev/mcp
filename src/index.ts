@@ -288,7 +288,7 @@ server.tool(
   "render_public_template",
   "Fill a public template with the user's data and return a PDF link. Data must match the template's schema " +
     "(see get_public_template); a missing field comes back as a list of what to ask for, and costs nothing. " +
-    "Templates of the same kind take the same data (the resume styles; the packing slip and the delivery note), " +
+    "Templates of the same kind take the same data (the classic and modern resume; the packing slip and the delivery note), " +
     "so switching style is the same call with a different slug. Works without an API key within the daily free " +
     "limit.",
   {
