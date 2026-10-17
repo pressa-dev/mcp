@@ -20,9 +20,9 @@ Add this to your MCP client configuration (e.g. Claude Desktop, Cursor):
 ```
 
 That is the whole configuration. The server starts in anonymous mode and
-exposes the `compile` tool, which works with no credentials: 3 successful
-compilations per day, and failed attempts do not count against that, so an
-assistant can iterate on its LaTeX for free.
+exposes the `compile` tool and the public template gallery, which work with no
+credentials: 3 successful PDFs per day, and failed attempts do not count
+against that, so an assistant can iterate on its LaTeX for free.
 
 To unlock the rest, add a key:
 
@@ -63,15 +63,16 @@ render tools as well.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `PRESSA_API_KEY` | No | - | Pressa API key (starts with `pressa_`). Without it the server runs in anonymous mode and exposes only `compile`. |
+| `PRESSA_API_KEY` | No | - | Pressa API key (starts with `pressa_`). Without it the server runs in anonymous mode and exposes only `compile` and the public template tools. |
 | `PRESSA_API_URL` | No | `https://api.pressa.dev` | API base URL |
 
 ## Anonymous mode
 
 With no `PRESSA_API_KEY` set, the server starts anyway rather than refusing to
-run, and registers exactly one tool: `compile`. Tools that need an account are
-not registered at all, because a tool that cannot succeed is worse than an
-absent one.
+run, and registers only the tools that work without an account: `compile`,
+`list_public_templates`, `get_public_template` and `render_public_template`.
+Tools that need an account are not registered at all, because a tool that
+cannot succeed is worse than an absent one.
 
 Anonymous limits: pdflatex only, up to 3 pages, 30 KB of source, no image
 assets, and PDF links that expire after 1 hour.
@@ -116,6 +117,16 @@ Each plan has limits on pages per document, LaTeX source size, PDF output size, 
 ```
 
 **Output (error):** Compilation log and error line number.
+
+### `list_public_templates`, `get_public_template`, `render_public_template`
+
+Pressa's public document templates ([pressa.dev/templates](https://pressa.dev/templates)): invoices, purchase orders, packing slips, delivery notes, receipts, reports, certificates, resumes and cover letters. No key needed.
+
+- `list_public_templates`: every template with a summary and a preview image URL.
+- `get_public_template` (`template`: slug): the fields (JSON schema), sample data and filling instructions.
+- `render_public_template` (`template`: slug, `data`: object shaped like the sample): fills the template and returns `pdf_url`. A field that is missing or of the wrong type comes back as a list to fix, at no cost.
+
+Each template also has plain instructions for assistants at `https://pressa.dev/templates/<slug>/agent.md`.
 
 ### `usage`
 

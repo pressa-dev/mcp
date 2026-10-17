@@ -91,12 +91,27 @@ test("compile tells the model when to use it and when not to", async () => {
   assert.match(d, /must generate complete, valid LaTeX/i);
 });
 
-test("anonymous mode advertises exactly one tool, and says a key is not needed", async () => {
+// Without a key only what works without one is listed: compile and the public
+// template gallery (the same set the hosted server gives a keyless client).
+// Account tools stay hidden rather than listed and always failing.
+test("anonymous mode advertises compile and the gallery, nothing that needs an account", async () => {
   const tools = await listTools();
+  const names = tools.map((t) => t.name).sort();
 
-  assert.equal(tools.length, 1, "keyless mode must expose only compile");
-  assert.equal(tools[0].name, "compile");
-  assert.match(tools[0].description, /NO API KEY IS CONFIGURED/);
+  assert.deepEqual(names, ["compile", "get_public_template", "list_public_templates", "render_public_template"]);
+  assert.match(tools.find((t) => t.name === "compile").description, /NO API KEY IS CONFIGURED/);
+});
+
+test("the gallery tools take what the public API takes and say they need no key", async () => {
+  const byName = Object.fromEntries((await listTools()).map((t) => [t.name, t]));
+
+  assert.deepEqual(byName.render_public_template.inputSchema.required.sort(), ["data", "template"]);
+  assert.deepEqual(byName.get_public_template.inputSchema.required, ["template"]);
+  for (const name of ["list_public_templates", "get_public_template", "render_public_template"]) {
+    assert.match(byName[name].description, /without an API key/i, `${name} must say it works without a key`);
+  }
+  assert.equal(byName.list_public_templates.annotations?.readOnlyHint, true);
+  assert.match(byName.list_public_templates.description, /packing slips/);
 });
 
 test("a key registers the full tool set", async () => {
@@ -106,7 +121,8 @@ test("a key registers the full tool set", async () => {
   const names = tools.map((t) => t.name);
 
   assert.ok(tools.length > 1, "a key must register more than compile");
-  for (const expected of ["compile", "render", "usage", "save_template", "list_templates", "save_asset", "create_asset_upload"]) {
+  for (const expected of ["compile", "render", "usage", "save_template", "list_templates", "save_asset", "create_asset_upload",
+    "list_public_templates", "get_public_template", "render_public_template"]) {
     assert.ok(names.includes(expected), `missing tool: ${expected}`);
   }
   assert.ok(

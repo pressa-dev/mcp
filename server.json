@@ -9,20 +9,20 @@
     "source": "github",
     "id": "1204147654"
   },
-  "version": "0.9.1",
+  "version": "0.10.0",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@pressa/mcp",
-      "version": "0.9.1",
+      "version": "0.10.0",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
           "name": "PRESSA_API_KEY",
-          "description": "Optional. Without it the server exposes only compile, which works keyless within a daily allowance. A free key from pressa.dev raises the limits and registers the template, asset and render tools.",
+          "description": "Optional. Without it the server exposes compile and the public template gallery, which work keyless within a daily allowance. A free key from pressa.dev raises the limits and registers the saved-template, asset and render tools.",
           "placeholder": "pressa_your_key_here",
           "isRequired": false,
           "isSecret": true,

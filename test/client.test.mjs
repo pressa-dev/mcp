@@ -221,3 +221,45 @@ test("createAssetUpload: surfaces the API error code", async () => {
     return true;
   });
 });
+
+test("public templates: list, get and render hit the public API without a key", async () => {
+  const calls = mockFetch(({ url }) => {
+    if (url.endsWith("/render")) return jsonResponse({ pdf_url: "https://pressa.dev/api/v1/pdfs/x?sig=a" });
+    if (url.endsWith("/public_templates")) return jsonResponse({ templates: [{ slug: "invoice" }] });
+    return jsonResponse({ template: { slug: "packing-slip" } });
+  });
+  const client = new PressaClient("https://api.pressa.dev", null);
+
+  assert.equal((await client.listPublicTemplates()).templates[0].slug, "invoice");
+  assert.equal((await client.getPublicTemplate("packing-slip")).template.slug, "packing-slip");
+  const rendered = await client.renderPublicTemplate("packing-slip", { order_number: "A-1" });
+
+  assert.equal(rendered.pdf_url, "https://pressa.dev/api/v1/pdfs/x?sig=a");
+  assert.equal(calls[0].url, "https://api.pressa.dev/api/v1/public_templates");
+  assert.equal(calls[2].url, "https://api.pressa.dev/api/v1/public_templates/packing-slip/render");
+  assert.equal(calls[2].init.method, "POST");
+  assert.deepEqual(JSON.parse(calls[2].init.body), { data: { order_number: "A-1" } });
+  for (const call of calls) assert.equal(call.init.headers.Authorization, undefined, "no key, no header");
+});
+
+test("public templates: a key is sent when configured, and errors keep the server body", async () => {
+  const calls = mockFetch(() =>
+    jsonResponse({ error: "schema_validation_failed", message: "Missing fields", missing_fields: ["items[0].quantity"] }, 422),
+  );
+  const client = new PressaClient("https://api.pressa.dev", "pressa_" + "0".repeat(48));
+
+  await assert.rejects(client.renderPublicTemplate("invoice", {}), (error) => {
+    assert.equal(error.status, 422);
+    assert.deepEqual(error.body.missing_fields, ["items[0].quantity"]);
+    return true;
+  });
+  assert.equal(calls[0].init.headers.Authorization, "Bearer pressa_" + "0".repeat(48));
+});
+
+test("public templates: the slug is URL-encoded", async () => {
+  const calls = mockFetch(() => jsonResponse({ template: {} }));
+  await new PressaClient("https://api.pressa.dev", null).getPublicTemplate("a/b c");
+
+  assert.equal(calls[0].url, "https://api.pressa.dev/api/v1/public_templates/a%2Fb%20c");
+});
+

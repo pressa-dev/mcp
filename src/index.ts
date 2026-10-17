@@ -107,6 +107,18 @@ function formatError(error: unknown): { content: { type: "text"; text: string }[
       if (nextStep.card_required === false) parts.push("  no credit card required");
     }
 
+    // Public template data that does not match the schema: say exactly which
+    // fields to ask the user for, instead of a bare "validation failed".
+    if (Array.isArray(body?.missing_fields) && body.missing_fields.length > 0) {
+      parts.push(`\nMissing fields: ${(body.missing_fields as unknown[]).map(String).join(", ")}`);
+    }
+    if (Array.isArray(body?.type_errors) && body.type_errors.length > 0) {
+      parts.push("Wrong types:");
+      for (const e of body.type_errors as Record<string, unknown>[]) {
+        parts.push(`  ${String(e.field)}: expected ${String(e.expected)}, got ${String(e.got)}`);
+      }
+    }
+
     if (body?.log) parts.push(`\nCompilation log:\n${body.log}`);
     if (body?.line && !diagnosis) parts.push(`Error on line: ${body.line}`);
 
@@ -222,6 +234,72 @@ server.tool(
       return {
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
       };
+    } catch (error) {
+      return formatError(error);
+    }
+  },
+);
+
+// --- public template gallery (pressa.dev/templates) ---
+//
+// Registered with or without a key, like on the hosted server: the catalogue
+// is public and a render runs on the anonymous daily allowance. Descriptions
+// match app/services/mcp/tool_registry.rb.
+
+server.tool(
+  "list_public_templates",
+  "List Pressa's public, professionally designed document templates (invoices, purchase orders, packing slips, " +
+    "delivery notes, receipts, reports, certificates, resumes, CVs, cover letters), each with a one-line summary " +
+    "and a preview image URL. Use this when the user wants one of these documents and has no layout of their own, " +
+    "or asks to see designs to choose from. Works without an API key.",
+  {},
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  async () => {
+    try {
+      const result = await client.listPublicTemplates();
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (error) {
+      return formatError(error);
+    }
+  },
+);
+
+server.tool(
+  "get_public_template",
+  "Get a public template's fields (JSON schema), sample data, filling instructions and LaTeX source. Read the " +
+    "instructions before collecting data from the user. To make the PDF, pass the data to " +
+    "`render_public_template`; to change the layout itself, edit the source and use `compile`. Works without an " +
+    "API key.",
+  {
+    template: z.string().min(1).describe("Template slug from list_public_templates, e.g. invoice or classic-resume."),
+  },
+  { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  async ({ template }) => {
+    try {
+      const result = await client.getPublicTemplate(template);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (error) {
+      return formatError(error);
+    }
+  },
+);
+
+server.tool(
+  "render_public_template",
+  "Fill a public template with the user's data and return a PDF link. Data must match the template's schema " +
+    "(see get_public_template); a missing field comes back as a list of what to ask for, and costs nothing. " +
+    "Templates of the same kind take the same data (the resume styles; the packing slip and the delivery note), " +
+    "so switching style is the same call with a different slug. Works without an API key within the daily free " +
+    "limit.",
+  {
+    template: z.string().min(1).describe("Template slug, e.g. invoice or modern-resume."),
+    data: z.record(z.string(), z.unknown()).describe("Values for the template's fields, shaped like its sample data."),
+  },
+  { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  async ({ template, data }) => {
+    try {
+      const result = await client.renderPublicTemplate(template, data);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     } catch (error) {
       return formatError(error);
     }

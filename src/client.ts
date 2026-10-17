@@ -166,6 +166,32 @@ export interface AssetSaveResponse {
   created: boolean;
 }
 
+/** One entry of GET /api/v1/public_templates. */
+export interface PublicTemplateSummary {
+  slug: string;
+  title: string;
+  category: string;
+  summary: string;
+  pairs_with: string[];
+  [key: string]: unknown;
+}
+
+export interface PublicTemplateListResponse {
+  templates: PublicTemplateSummary[];
+}
+
+export interface PublicTemplateResponse {
+  template: PublicTemplateSummary & {
+    description: string;
+    instructions: string;
+    compiler: string;
+    schema: Record<string, unknown>;
+    sample_data: Record<string, unknown>;
+    latex_with_placeholders: string;
+    license: string;
+  };
+}
+
 export class PressaApiError extends Error {
   constructor(
     message: string,
@@ -508,6 +534,58 @@ export class PressaClient {
           body,
         );
       }
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  // --- public template gallery (pressa.dev/templates) ---
+  //
+  // These work without an API key: the catalogue is public and the render
+  // runs on the anonymous tier's daily allowance. With a key the render counts
+  // against the account instead.
+
+  async listPublicTemplates(): Promise<PublicTemplateListResponse> {
+    return this.call("/api/v1/public_templates", { method: "GET" }, "List public templates", 10_000) as
+      Promise<PublicTemplateListResponse>;
+  }
+
+  async getPublicTemplate(slug: string): Promise<PublicTemplateResponse> {
+    const encoded = encodeURIComponent(slug);
+    return this.call(`/api/v1/public_templates/${encoded}`, { method: "GET" }, "Get public template", 10_000) as
+      Promise<PublicTemplateResponse>;
+  }
+
+  async renderPublicTemplate(slug: string, data: Record<string, unknown>): Promise<CompileResponse> {
+    const encoded = encodeURIComponent(slug);
+    return this.call(
+      `/api/v1/public_templates/${encoded}/render`,
+      { method: "POST", body: JSON.stringify({ data }) },
+      "Render public template",
+      120_000,
+    ) as Promise<CompileResponse>;
+  }
+
+  // A JSON request with a timeout that throws PressaApiError on a non-2xx
+  // answer, carrying the parsed body so formatError can show the server's
+  // message, missing fields and next step.
+  private async call(path: string, init: RequestInit, label: string, timeoutMs: number): Promise<unknown> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await this.request(path, { ...init, signal: controller.signal });
+
+      if (!response.ok) {
+        const body = await this.safeJson(response) as Record<string, unknown> | null;
+        throw new PressaApiError(
+          (body?.error as string) ?? `${label} failed (HTTP ${response.status})`,
+          response.status,
+          body,
+        );
+      }
+
+      return await response.json();
     } finally {
       clearTimeout(timeout);
     }
