@@ -556,11 +556,11 @@ export class PressaClient {
       Promise<PublicTemplateResponse>;
   }
 
-  async renderPublicTemplate(slug: string, data: Record<string, unknown>): Promise<CompileResponse> {
+  async renderPublicTemplate(slug: string, data: Record<string, unknown>, color?: string): Promise<CompileResponse> {
     const encoded = encodeURIComponent(slug);
     return this.call(
       `/api/v1/public_templates/${encoded}/render`,
-      { method: "POST", body: JSON.stringify({ data }) },
+      { method: "POST", body: JSON.stringify(color ? { color, data } : { data }) },
       "Render public template",
       120_000,
     ) as Promise<CompileResponse>;

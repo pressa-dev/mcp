@@ -122,9 +122,9 @@ Each plan has limits on pages per document, LaTeX source size, PDF output size, 
 
 Pressa's public document templates ([pressa.dev/templates](https://pressa.dev/templates)): invoices, purchase orders, packing slips, delivery notes, receipts, reports, certificates, resumes and cover letters. No key needed.
 
-- `list_public_templates`: every template with a summary and a preview image URL.
+- `list_public_templates`: every template with a summary, a preview image URL and its colours. Designs of one document (`document`, e.g. five resume designs) take the same data.
 - `get_public_template` (`template`: slug): the fields (JSON schema), sample data and filling instructions.
-- `render_public_template` (`template`: slug, `data`: object shaped like the sample): fills the template and returns `pdf_url`. A field that is missing or of the wrong type comes back as a list to fix, at no cost.
+- `render_public_template` (`template`: slug, `data`: object shaped like the sample, optional `color`): fills the template and returns `pdf_url`. A field that is missing or of the wrong type comes back as a list to fix, at no cost.
 
 Each template also has plain instructions for assistants at `https://pressa.dev/templates/<slug>/agent.md`.
 

@@ -249,9 +249,10 @@ server.tool(
 server.tool(
   "list_public_templates",
   "List Pressa's public, professionally designed document templates (invoices, purchase orders, packing slips, " +
-    "delivery notes, receipts, reports, certificates, resumes, CVs, cover letters), each with a one-line summary " +
-    "and a preview image URL. Use this when the user wants one of these documents and has no layout of their own, " +
-    "or asks to see designs to choose from. Works without an API key.",
+    "delivery notes, receipts, reports, certificates, resumes, CVs, cover letters), each with a one-line summary, " +
+    "a preview image URL and the colours it comes in. Several designs of one document (`document`, e.g. five " +
+    "resume designs) take the same data. Use this when the user wants one of these documents and has no layout of " +
+    "their own, or asks to see designs to choose from. Works without an API key.",
   {},
   { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   async () => {
@@ -288,17 +289,21 @@ server.tool(
   "render_public_template",
   "Fill a public template with the user's data and return a PDF link. Data must match the template's schema " +
     "(see get_public_template); a missing field comes back as a list of what to ask for, and costs nothing. " +
-    "Templates of the same kind take the same data (the classic and modern resume; the packing slip and the delivery note), " +
-    "so switching style is the same call with a different slug. Works without an API key within the daily free " +
-    "limit.",
+    "The designs of one document take the same data (the five resume designs, as do the packing slip and the " +
+    "delivery note), so switching design is the same call with a different slug, and `color` prints a design in another of " +
+    "its colours. Works without an API key within the daily free limit.",
   {
     template: z.string().min(1).describe("Template slug, e.g. invoice or modern-resume."),
     data: z.record(z.string(), z.unknown()).describe("Values for the template's fields, shaped like its sample data."),
+    color: z
+      .string()
+      .optional()
+      .describe("Optional: one of the template's colours (list_public_templates), e.g. navy. Left out, the default."),
   },
   { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
-  async ({ template, data }) => {
+  async ({ template, data, color }) => {
     try {
-      const result = await client.renderPublicTemplate(template, data);
+      const result = await client.renderPublicTemplate(template, data, color);
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     } catch (error) {
       return formatError(error);

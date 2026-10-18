@@ -239,6 +239,9 @@ test("public templates: list, get and render hit the public API without a key", 
   assert.equal(calls[2].url, "https://api.pressa.dev/api/v1/public_templates/packing-slip/render");
   assert.equal(calls[2].init.method, "POST");
   assert.deepEqual(JSON.parse(calls[2].init.body), { data: { order_number: "A-1" } });
+
+  await client.renderPublicTemplate("modern-resume", { name: "A" }, "navy");
+  assert.deepEqual(JSON.parse(calls[3].init.body), { color: "navy", data: { name: "A" } });
   for (const call of calls) assert.equal(call.init.headers.Authorization, undefined, "no key, no header");
 });
 
