@@ -12,7 +12,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -70,4 +70,16 @@ test("server.json describes the package it points to", () => {
   assert.equal(server.version, pkg.version);
   assert.equal(npmPackage.identifier, pkg.name);
   assert.equal(npmPackage.version, pkg.version, "server.json must point at the version being published");
+});
+
+// The bin target must be executable inside the published tarball. npm usually
+// adds the bit when it links a bin, but not when npx updates a package it has
+// already installed in place: 0.11.0 failed to start in the Claude desktop app
+// with "pressa-mcp: Permission denied". npm pack keeps the mode it finds, so
+// the build sets it.
+test("the bin target is executable, so npx can start it after an update", () => {
+  const bin = readJson("package.json").bin["pressa-mcp"];
+  assert.equal(bin, "dist/index.js");
+  assert.ok(statSync(join(ROOT, bin)).mode & 0o111, `${bin} is not executable; the build must chmod it`);
+  assert.match(readFileSync(join(ROOT, bin), "utf-8").split("\n")[0], /^#!\/usr\/bin\/env node/);
 });
