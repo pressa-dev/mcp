@@ -165,7 +165,7 @@ server.tool(
     "",
     HAS_KEY
       ? ""
-      : "NO API KEY IS CONFIGURED, so this runs on the anonymous tier: pdflatex only, up to 3 pages, " +
+      : "NO API KEY IS CONFIGURED, so this runs on the anonymous tier: pdflatex or xelatex, up to 3 pages, " +
         "no image assets, and a small number of compilations per day. It works right now - use it. " +
         "If the server reports the daily allowance is used up, tell the user they can get a free key at " +
         `${SIGNUP_URL} in about 30 seconds with no credit card, then set PRESSA_API_KEY and restart this server.`,

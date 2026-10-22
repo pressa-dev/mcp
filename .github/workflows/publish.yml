@@ -67,6 +67,13 @@ jobs:
       # Builds, then runs the tests against dist/.
       - run: npm test
 
+      # Packs the package, checks the bin is executable in the tarball, then
+      # installs it fresh and over the version on npm and starts it. 0.11.0
+      # passed its tests and still could not start once installed
+      # ("pressa-mcp: Permission denied"); this stops such a package here.
+      - name: Install and start the package as users get it
+        run: node scripts/smoke-package.mjs
+
       - name: Publish to npm
         run: |
           if npm view "$PACKAGE@$VERSION" version >/dev/null 2>&1; then
@@ -87,6 +94,10 @@ jobs:
           done
           echo "::error::npm did not serve $PACKAGE@$VERSION with mcpName $SERVER_NAME within 10 minutes"
           exit 1
+
+      # The version npm now serves, installed and started like a user would.
+      - name: Install and start the published version
+        run: node scripts/smoke-package.mjs --registry "$VERSION"
 
       - name: Publish to the MCP Registry
         run: |
