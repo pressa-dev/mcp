@@ -43,6 +43,14 @@ const server = new McpServer({
   version: pkg.version,
 });
 
+// The client that started this server (from initialize), so the API can
+// count compiles per channel and client. Names only, nothing about the user.
+client.setUserAgent(() => {
+  const host = server.server.getClientVersion();
+  const clean = (s: string) => s.replace(/[^\w.@/-]/g, "").slice(0, 40);
+  return host ? `pressa-mcp/${pkg.version} (${clean(host.name)}/${clean(host.version)})` : `pressa-mcp/${pkg.version}`;
+});
+
 // Registration helper for tools that need a real account.
 //
 // In anonymous mode these are NOT registered rather than registered-and-always-

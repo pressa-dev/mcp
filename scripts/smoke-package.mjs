@@ -113,3 +113,6 @@ for (const [label, from] of scenarios) {
     rmSync(dir, { recursive: true, force: true });
   }
 }
+
+// The packed tarball is a build artifact; leave the working tree as it was.
+if (!registryVersion) rmSync(spec, { force: true });

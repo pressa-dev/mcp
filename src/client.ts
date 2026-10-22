@@ -206,6 +206,10 @@ export class PressaApiError extends Error {
 export class PressaClient {
   private readonly baseUrl: string;
   private readonly apiKey: string | null;
+  // "pressa-mcp/0.11.3 (claude-ai/0.1.0)": tells the server this came through
+  // the npm MCP server and from which client, which an API call cannot say
+  // any other way (CompileChannel on the server). Set once the client is known.
+  private userAgent: () => string = () => "pressa-mcp";
 
   /**
    * `apiKey` may be null, which puts the client in anonymous mode: no
@@ -221,6 +225,10 @@ export class PressaClient {
 
     this.baseUrl = baseUrl.replace(/\/+$/, "");
     this.apiKey = apiKey;
+  }
+
+  setUserAgent(userAgent: () => string): void {
+    this.userAgent = userAgent;
   }
 
   async compile(request: CompileRequest): Promise<CompileResponse> {
@@ -601,6 +609,7 @@ export class PressaClient {
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
+        "User-Agent": this.userAgent(),
         // Omitted entirely when anonymous. A present-but-empty Bearer value
         // would earn a 401 rather than the anonymous tier, because the server
         // treats a supplied-but-invalid key as a hard error on purpose.
