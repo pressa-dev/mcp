@@ -1,0 +1,53 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/mcpb/main/dist/mcpb-manifest-v0.3.schema.json",
+  "manifest_version": "0.3",
+  "name": "pressa",
+  "display_name": "Pressa",
+  "version": "0.11.4",
+  "description": "Publication-quality PDFs from Claude: invoices, contracts, reports, letters, CVs.",
+  "long_description": "Pressa turns the documents Claude writes into publication-quality PDFs, with nothing else to install. It works without an account (a few short documents a day). Paste your API key from pressa.dev/dashboard to use your plan's limits, saved templates, images and logos.",
+  "author": {
+    "name": "Pressa",
+    "email": "hello@pressa.dev",
+    "url": "https://pressa.dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pressa-dev/mcp"
+  },
+  "homepage": "https://pressa.dev",
+  "documentation": "https://pressa.dev/docs/mcp",
+  "support": "https://github.com/pressa-dev/mcp/issues",
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"],
+      "env": {
+        "PRESSA_API_KEY": "${user_config.api_key}"
+      }
+    }
+  },
+  "tools_generated": true,
+  "user_config": {
+    "api_key": {
+      "type": "string",
+      "title": "API key",
+      "description": "Your key from pressa.dev/dashboard (starts with pressa_). Leave empty to try Pressa without an account.",
+      "sensitive": true,
+      "required": false,
+      "default": ""
+    }
+  },
+  "keywords": ["pdf", "latex", "documents", "invoice", "contract", "report"],
+  "license": "MIT",
+  "privacy_policies": ["https://pressa.dev/privacy"],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}

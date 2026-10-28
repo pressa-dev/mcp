@@ -6,7 +6,10 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { PressaClient, PressaApiError } from "./client.js";
 
-const API_KEY = process.env.PRESSA_API_KEY ?? null;
+// Trimmed because the Claude Desktop extension takes the key from a form a
+// person pastes into, often with a trailing space or newline; an empty field
+// arrives as "" and means anonymous mode.
+const API_KEY = process.env.PRESSA_API_KEY?.trim() || null;
 delete process.env.PRESSA_API_KEY; // Clear from env to reduce exposure
 const API_URL = process.env.PRESSA_API_URL ?? "https://api.pressa.dev";
 

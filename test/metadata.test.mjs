@@ -72,6 +72,12 @@ test("server.json describes the package it points to", () => {
   assert.equal(npmPackage.version, pkg.version, "server.json must point at the version being published");
 });
 
+// The Claude Desktop extension (scripts/build-mcpb.mjs) shows this version on
+// its install screen; a stale one makes an update look like a reinstall.
+test("the mcpb manifest names the version being published", () => {
+  assert.equal(readJson("mcpb/manifest.json").version, readJson("package.json").version);
+});
+
 // The bin target must be executable inside the published tarball. npm usually
 // adds the bit when it links a bin, but not when npx updates a package it has
 // already installed in place: 0.11.0 failed to start in the Claude desktop app

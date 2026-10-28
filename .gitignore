@@ -4,3 +4,4 @@ dist/
 .env
 # mcp-publisher writes its registry login tokens into the working directory
 .mcpregistry_*
+build/
